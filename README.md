@@ -100,8 +100,3 @@ visudo
 Uncomment line #82 with wheel ALL=(ALL) AL
 8. Reboot the Raspberry pi then connect using ssh client loh on with user created before. root user will not be able to log on except PermitRootLogin yes line exists in /etc/ssh/sshd_config
 
-
-
-
-
-  
