@@ -1,3 +1,76 @@
+1. Create a FAT32 Bootable Micro SD Card using fdisk
+  $ sudo fdisk -l
+  - Determine mounted sd card device i.e. /dev/sdc 
+  $ sudo fdisk /dev/sdc enter m for help
+  - list partitions with p command
+  - create new partition with n command enter p for primary partition
+  - enter partition number 1 then enter accept default first sector 
+  - enter +<nnG> for partition sizt to be created
+  - change partition type with t command 
+  - choose the partition number then enter partition type id (enter L to list the partion type id i.e. b => W95 FAT32) 
+  - make partion bootable with a command then enter partiton bumber
+  - verify the partion create with p command out put should look like below 
+         Device         Boot   Start      End  Sectors Size Id Type
+        /dev/sdc1         *     2048  2099199  2097152  1G  b W95 FAT32
+  - Write the partition table with w command
+  - create vfat file system on the partion created. 
+    $ sudo mkfs.vfat /dev/sdc1
+2. mount the sd card $ mount /dev/sdc1 /media/sdmount 
+    Download Alpine Linux from  http://dl-cdn.alpinelinux.org/alpine/v3.11/releases/armv7/alpine-rpi-3.11.6-armv7.tar.gz then extract Alpine-rpi tar archive on to the sd card
+   $ cd /media/sdmount 
+   $ tar -xzfv <dir>/alpine-rpi-3.11.6-armv7.tar.gz
+3. prepare overlay file for headless installation of Alpine linux on Raspberry pi  
+    $ mkdir bin etc
+    $ touch bin/hostname etc/.default_boot_services
+    $ chmod +x bin/hostname
+    Edit bin/hostname as follows,enter ssid and psk according to local network
+     *** Content of bin/hostname ***
+       #!/bin/sh
+       apk add wpa_supplicant
+
+       cat <<EOF >> /etc/network/interfaces
+       auto lo
+       iface lo inet loopback
+
+       auto wlan0
+       iface wlan0 inet dhcp
+      	hostname localhost
+     EOF
+
+     cat <<EOF >> /etc/wpa_supplicant/wpa_supplicant.conf
+     network={
+	      ssid="Changeme"
+	      key_mgmt=WPA-PSK
+      	psk="Changeme"
+     }
+     EOF
+
+     service wpa_supplicant start
+     service networking start
+     rm /var/run/ifstate
+
+     /sbin/setup-sshd -c openssh
+     cp /etc/ssh/sshd_config /etc/ssh/sshd_config.orig
+
+     cat <<EOF >> /etc/ssh/sshd_config
+     PermitEmptyPasswords yes
+     PermitRootLogin yes
+     EOF
+
+     service sshd restart
+     mv /etc/ssh/sshd_config.orig /etc/ssh/sshd_config
+
+     rm /bin/hostname
+     ln -s /bin/busybox /bin/hostname
+     
+  *** EOF file bin/hostname ***
+
+4. create overlay file
+     $ tar czvf localhost.apkovl.tar.gz bin/ etc/
+5. copy the localhost.apkovl.tar.gz into the root of the sd card unmout put the sd card in raspberry pi sd card slot
+6. power on the raspberry pi after it boot up determin it's ip address then access with ssh client with root user there is no password.
+7. setup new system on to another partitopn of the sd card following the command sequence below
+
 apk update
 apk add cfdisk
 apk add e2fsprogs
@@ -20,11 +93,10 @@ cd /media/mmcblk0p1
 
 sed -i 's/^/root=\/dev\/mmcblk0p2 /' /media/mmcblk0p1/cmdline.txt  
 
-
+*** Additional steps recommanded ***
 apk add sudo
-adduser chaisaeng
-adduser chaisaeng wheel
+adduser <username>
+adduser <username> wheel
 visudo 
 Uncomment line #82 with wheel ALL=(ALL) AL
-
-reboot
+8. Reboot the Raspberry pi then connect using ssh client loh on with user created before. root user will not be able to log on except PermitRootLogin yes line exists in /etc/ssh/sshd_config
